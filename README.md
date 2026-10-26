@@ -83,6 +83,10 @@ Tailwind scans complete class names in source files. Use `"bg-red-500"` rather t
 
 Generated files and compiler diagnostics (`compiler.log`) live in the OS user cache under `fasthtml-tailwindcss`. Nothing is written into your application or installed package. Inline CSS requires an appropriate Content Security Policy if your application sets one.
 
+### Automatic updates
+
+The library is automatically updated to the latest stable [Tailwind CSS release](https://github.com/tailwindlabs/tailwindcss/releases), with checks running daily. The PyPI version matches the bundled Tailwind version; Python-only fixes may add a `.postN` suffix.
+
 ## Development
 
 ```sh
@@ -93,7 +97,7 @@ uv build
 
 Wheel builds download and verify the matching official standalone executable. Wheels target Linux x64/ARM64 (glibc 2.28+ or musl 1.2+), macOS 13+ (Intel/Apple Silicon), and Windows x64. Source distributions contain the build hook and checksum manifest; building one requires network access unless the verified compiler is already present locally.
 
-The package version follows Tailwind, with `.postN` for Python-only fixes. The release workflow checks upstream daily, tests the platform wheels and publishes through PyPI Trusted Publishing. Configure the publisher for `SpaceShaman/fasthtml-tailwindcss`, workflow `release.yml`, environment `pypi`; allow workflow version commits on the default branch.
+The [Release workflow](.github/workflows/release.yml) builds and tests the platform wheels and publishes through PyPI Trusted Publishing. Configure the publisher for `SpaceShaman/fasthtml-tailwindcss`, workflow `release.yml`, environment `pypi`; allow workflow version commits on the default branch.
 
 ## Links
 
