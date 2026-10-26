@@ -87,6 +87,8 @@ Generated files and compiler diagnostics (`compiler.log`) live in the OS user ca
 
 The library is automatically updated to the latest stable [Tailwind CSS release](https://github.com/tailwindlabs/tailwindcss/releases), with checks running daily. The PyPI version matches the bundled Tailwind version; Python-only fixes may add a `.postN` suffix.
 
+For inline Lucide SVG icons with typed names and editor autocomplete, see [fasthtml-lucide](https://github.com/SpaceShaman/fasthtml-lucide).
+
 ## Development
 
 ```sh
