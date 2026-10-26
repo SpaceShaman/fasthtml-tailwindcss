@@ -10,7 +10,7 @@
 [![Pytest](https://img.shields.io/badge/testing-pytest-0A9EDC?logo=pytest)](https://docs.pytest.org/)
 [![Ruff](https://img.shields.io/badge/linting-Ruff-D7FF64?logo=ruff)](https://github.com/astral-sh/ruff)
 
-Tailwind CSS for [FastHTML](https://github.com/AnswerDotAI/fasthtml) with a persistent compiler across server reloads.
+Tailwind CSS for [FastHTML](https://github.com/AnswerDotAI/fasthtml) with a persistent compiler across server reloads and watch mode for automatic CSS rebuilds.
 
 ## Installation
 
@@ -24,6 +24,12 @@ Or with pip:
 
 ```sh
 pip install fasthtml-tailwindcss
+```
+
+On Alpine Linux, the standalone compiler also requires the system C++ runtime:
+
+```sh
+apk add --no-cache libstdc++ libgcc
 ```
 
 ## Usage

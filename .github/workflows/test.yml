@@ -1,13 +1,13 @@
 name: Test wheels
 
 on:
-  push:
   pull_request:
   workflow_call:
     inputs:
       release:
         type: boolean
         default: false
+  workflow_dispatch:
 
 permissions:
   contents: read
@@ -76,7 +76,7 @@ jobs:
         shell: bash
         run: |
           docker run --rm -v "$PWD:/work" -w /work python:3.11-alpine sh -c \
-            'pip install dist/*.whl pytest httpx uvicorn && python -m pytest -q'
+            'apk add --no-cache libstdc++ libgcc && pip install dist/*.whl pytest httpx uvicorn && python -m pytest -q'
       - uses: actions/upload-artifact@v4
         if: inputs.release
         with:

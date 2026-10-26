@@ -1,7 +1,7 @@
 [project]
 name = "fasthtml-tailwindcss"
 version = "4.3.3"
-description = "Tailwind CSS for FastHTML with a persistent compiler across server reloads."
+description = "Tailwind CSS for FastHTML with a persistent compiler across server reloads and watch mode for automatic CSS rebuilds."
 readme = "README.md"
 requires-python = ">=3.11"
 license = "MIT"
