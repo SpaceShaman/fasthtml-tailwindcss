@@ -48,17 +48,17 @@ jobs:
         shell: bash
         run: |
           python - <<'PY'
-          import shutil, tarfile
+          import shutil, tarfile, tempfile
           from pathlib import Path
           archive, = Path('source-dist').glob('*.tar.gz')
-          with tarfile.open(archive) as source:
-              source.extractall('unpacked', filter='data')
-          root, = Path('unpacked').iterdir()
-          for item in root.iterdir():
-              if item.is_dir():
-                  shutil.copytree(item, item.name, dirs_exist_ok=True)
-              else:
-                  shutil.copyfile(item, item.name)
+          with tempfile.TemporaryDirectory() as temporary, tarfile.open(archive) as source:
+              source.extractall(temporary, filter='data')
+              root, = Path(temporary).iterdir()
+              for item in root.iterdir():
+                  if item.is_dir():
+                      shutil.copytree(item, item.name, dirs_exist_ok=True)
+                  else:
+                      shutil.copyfile(item, item.name)
           PY
       - name: Build platform wheel
         env:
@@ -70,13 +70,13 @@ jobs:
         run: |
           uv venv
           uv pip install --group test dist/*.whl
-          uv run --no-project python -m pytest -q
+          uv run --no-project python -m pytest tests -q
       - name: Test musl wheel on Alpine
         if: contains(matrix.target, 'musl')
         shell: bash
         run: |
           docker run --rm -v "$PWD:/work" -w /work python:3.11-alpine sh -c \
-            'apk add --no-cache libstdc++ libgcc && pip install dist/*.whl pytest httpx uvicorn && python -m pytest -q'
+            'apk add --no-cache libstdc++ libgcc && pip install dist/*.whl pytest httpx uvicorn && python -m pytest tests -q'
       - uses: actions/upload-artifact@v4
         if: inputs.release
         with:
