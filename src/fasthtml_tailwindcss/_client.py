@@ -1,13 +1,12 @@
-import asyncio
 import hashlib
 import json
 import os
 import subprocess
 import sys
 import time
-from contextlib import asynccontextmanager, suppress
 from importlib.metadata import version
 from pathlib import Path
+from threading import Event, Thread
 
 from filelock import FileLock, Timeout
 from platformdirs import user_cache_path
@@ -38,7 +37,8 @@ def configuration(*, watch, sources, input, css):
 
 
 def cache_directory(config):
-    key = hashlib.sha256(config["root"].encode()).hexdigest()[:24]
+    settings = json.dumps(config, sort_keys=True).encode()
+    key = hashlib.sha256(settings).hexdigest()[:24]
     return user_cache_path("fasthtml-tailwindcss", appauthor=False) / key
 
 
@@ -67,14 +67,14 @@ class Session:
         self.directory = cache_directory(config)
         self.output = self.directory / "style.css"
         self.error = ""
+        self._closed = Event()
+        self._thread = Thread(target=self.heartbeat, daemon=True)
 
     def connect(self):
         self.directory.mkdir(parents=True, exist_ok=True, mode=0o700)
         with FileLock(str(self.directory / "startup.lock"), timeout=30):
             self.wait_for_previous_worker()
-            if running(self.directory):
-                self.check_configuration()
-            else:
+            if not running(self.directory):
                 self.start_worker()
             (self.directory / "heartbeat").touch()
 
@@ -84,13 +84,6 @@ class Session:
             if time.monotonic() > deadline:
                 raise RuntimeError("Tailwind helper is not responding")
             time.sleep(0.05)
-
-    def check_configuration(self):
-        config = json.loads((self.directory / "config.json").read_text())
-        if config != self.config:
-            raise RuntimeError(
-                "Tailwind settings differ from the active session. Stop all servers for this project and wait 15 seconds before restarting."
-            )
 
     def start_worker(self):
         for name in ("style.css", "error", "pid"):
@@ -126,7 +119,7 @@ class Session:
                 )
             time.sleep(0.05)
 
-    async def wait_for_css(self):
+    def wait_for_css(self):
         deadline = time.monotonic() + 120
         while not self.output.exists():
             if self.error:
@@ -135,10 +128,10 @@ class Session:
                 raise RuntimeError(
                     "Tailwind initial build timed out; see compiler.log in the cache"
                 )
-            await asyncio.sleep(0.05)
+            time.sleep(0.05)
 
-    async def heartbeat(self):
-        while True:
+    def heartbeat(self):
+        while not self._closed.is_set():
             error = self.directory / "error"
             if error.exists():
                 self.error = error.read_text(encoding="utf-8")
@@ -147,16 +140,17 @@ class Session:
             if self.error:
                 return
             (self.directory / "heartbeat").touch()
-            await asyncio.sleep(2)
+            self._closed.wait(2)
 
-    @asynccontextmanager
-    async def lifespan(self):
-        await asyncio.to_thread(self.connect)
-        heartbeat = asyncio.create_task(self.heartbeat())
+    def start(self):
+        self.connect()
+        self._thread.start()
         try:
-            await self.wait_for_css()
-            yield self
-        finally:
-            heartbeat.cancel()
-            with suppress(asyncio.CancelledError):
-                await heartbeat
+            self.wait_for_css()
+        except BaseException:
+            self.close()
+            raise
+
+    def close(self):
+        self._closed.set()
+        self._thread.join()
