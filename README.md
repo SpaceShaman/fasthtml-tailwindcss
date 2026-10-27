@@ -14,10 +14,29 @@ Tailwind CSS for [FastHTML](https://github.com/AnswerDotAI/fasthtml) with a pers
 
 ## Installation
 
-| Environment | uv | pip |
-| --- | --- | --- |
-| Development and builds | `uv add "fasthtml-tailwindcss[dev]"` | `pip install "fasthtml-tailwindcss[dev]"` |
-| Production | `uv add fasthtml-tailwindcss` | `pip install fasthtml-tailwindcss` |
+- Development and builds:
+
+  ```sh
+  uv add "fasthtml-tailwindcss[dev]"
+  ```
+
+  Or with pip:
+
+  ```sh
+  pip install "fasthtml-tailwindcss[dev]"
+  ```
+
+- Production:
+
+  ```sh
+  uv add fasthtml-tailwindcss
+  ```
+
+  Or with pip:
+
+  ```sh
+  pip install fasthtml-tailwindcss
+  ```
 
 The `dev` extra installs the standalone compiler through [fasthtml-tailwindcss-cli](https://pypi.org/project/fasthtml-tailwindcss-cli/). No Node.js or npm is needed. Production only needs the wrapper and generated CSS.
 
