@@ -55,3 +55,10 @@ def configuration(
 
 def state_directory(config: TailwindConfig) -> Path:
     return Path(config.root) / STATE_DIRECTORY
+
+
+def prepare_state_directory(directory: Path) -> None:
+    directory.mkdir(parents=True, exist_ok=True)
+    gitignore = directory / ".gitignore"
+    if not gitignore.exists():
+        gitignore.write_text("*\n", encoding="utf-8")

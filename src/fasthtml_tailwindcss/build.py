@@ -7,7 +7,7 @@ import sys
 from pathlib import Path
 
 from .compiler import binary_path, input_css
-from .config import STATE_DIRECTORY, TailwindConfig
+from .config import TailwindConfig, prepare_state_directory, state_directory
 
 
 def app_head(specification: str):
@@ -35,8 +35,8 @@ def app_head(specification: str):
 
 def build(config: TailwindConfig) -> None:
     root = Path(config.root)
-    directory = root / STATE_DIRECTORY
-    directory.mkdir(parents=True, exist_ok=True)
+    directory = state_directory(config)
+    prepare_state_directory(directory)
     source = directory / "build-input.css"
     source.write_text(input_css(config), encoding="utf-8")
     output = root / config.output

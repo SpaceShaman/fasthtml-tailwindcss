@@ -8,7 +8,12 @@ from threading import Event, Lock, Thread
 from filelock import FileLock, Timeout
 
 from .compiler import stop_process
-from .config import TailwindConfig, config_json, state_directory
+from .config import (
+    TailwindConfig,
+    config_json,
+    prepare_state_directory,
+    state_directory,
+)
 
 
 def running(directory: Path) -> bool:
@@ -44,7 +49,7 @@ class Session:
                 raise
 
     def connect(self) -> None:
-        self.directory.mkdir(parents=True, exist_ok=True)
+        prepare_state_directory(self.directory)
         with FileLock(str(self.directory / "startup.lock"), timeout=30):
             (self.directory / "heartbeat").touch()
             self.wait_for_worker()

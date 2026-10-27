@@ -103,7 +103,7 @@ TailwindHead(
 - `css`: CSS appended after the input, useful for `@theme`, variants, and `@source inline(...)`.
 - `output`: CSS file path, defaulting to `./static/tailwind.css`. The stylesheet URL follows this path, so mount its directory at the corresponding URL.
 
-Paths are relative to the working directory. The build command uses the application module's directory; run the server from that directory too. Temporary files and compiler logs live in `.fasthtml-tailwindcss/`, which you can add to `.gitignore`.
+Paths are relative to the working directory. The build command uses the application module's directory; run the server from that directory too. Temporary files and compiler logs live in `.fasthtml-tailwindcss/`.
 
 Use complete class names such as `"bg-red-500"`; Tailwind cannot detect names constructed with `f"bg-{color}-500"`. Classes in installed component libraries need explicit sources or safelisting.
 

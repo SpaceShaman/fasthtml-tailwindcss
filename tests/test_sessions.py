@@ -78,6 +78,7 @@ def test_concurrent_workers_share_one_build(project):
     assert len({s.output for s in sessions}) == 1
     directory = config.state_directory(settings)
     assert (directory / "active.json").is_file()
+    assert (directory / ".gitignore").read_text() == "*\n"
     assert not (directory / "config.json").exists()
     assert int((directory / "pid").read_text()) > 0
 

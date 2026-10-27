@@ -30,3 +30,4 @@ def test_build_uses_application_directory(project, reference):
     assert ".p-4{" in (directory / "static" / "tailwind.css").read_text()
     assert not (project / "static" / "tailwind.css").exists()
     assert not (directory / ".fasthtml-tailwindcss" / "pid").exists()
+    assert (directory / ".fasthtml-tailwindcss" / ".gitignore").read_text() == "*\n"
