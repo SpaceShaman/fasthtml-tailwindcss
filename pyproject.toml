@@ -31,7 +31,7 @@ Repository = "https://github.com/SpaceShaman/fasthtml-tailwindcss"
 fasthtml-tailwindcss = "fasthtml_tailwindcss.build:main"
 
 [project.optional-dependencies]
-dev = ["fasthtml-tailwindcss-cli>=4"]
+dev = ["fasthtml-tailwindcss-cli>=4.3.3"]
 
 [dependency-groups]
 build = ["hatchling>=1.27"]
