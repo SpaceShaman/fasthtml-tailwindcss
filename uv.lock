@@ -72,7 +72,7 @@ wheels = [
 
 [[package]]
 name = "fasthtml-tailwindcss"
-version = "4.3.3"
+version = "4.3.3.post1"
 source = { editable = "." }
 dependencies = [
     { name = "filelock" },
