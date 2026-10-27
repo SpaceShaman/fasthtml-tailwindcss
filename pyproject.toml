@@ -21,20 +21,17 @@ classifiers = [
 ]
 dependencies = ["filelock>=3.16", "python-fasthtml>=0.14.13"]
 
-[project.optional-dependencies]
-dev = ["fasthtml-tailwindcss-cli>=4,<5"]
-
-[project.scripts]
-fasthtml-tailwindcss = "fasthtml_tailwindcss.build:main"
-
-[tool.uv.sources]
-fasthtml-tailwindcss-cli = { path = "packages/cli" }
-
 [project.urls]
 Documentation = "https://github.com/SpaceShaman/fasthtml-tailwindcss#readme"
 Homepage = "https://github.com/SpaceShaman/fasthtml-tailwindcss"
 Issues = "https://github.com/SpaceShaman/fasthtml-tailwindcss/issues"
 Repository = "https://github.com/SpaceShaman/fasthtml-tailwindcss"
+
+[project.scripts]
+fasthtml-tailwindcss = "fasthtml_tailwindcss.build:main"
+
+[project.optional-dependencies]
+dev = ["fasthtml-tailwindcss-cli>=4"]
 
 [dependency-groups]
 build = ["hatchling>=1.27"]
@@ -50,3 +47,6 @@ packages = ["src/fasthtml_tailwindcss"]
 [tool.hatch.build.targets.sdist]
 include = ["/src", "/packages/cli", "/pyproject.toml", "/README.md", "/LICENSE", "/tests", "/scripts"]
 exclude = ["/packages/cli/src/fasthtml_tailwindcss_cli/bin"]
+
+[tool.uv.sources]
+fasthtml-tailwindcss-cli = { path = "packages/cli" }
