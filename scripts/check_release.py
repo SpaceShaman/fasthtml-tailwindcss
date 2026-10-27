@@ -1,7 +1,6 @@
 import json
 import os
 import re
-import subprocess
 import tomllib
 from pathlib import Path
 from urllib.error import HTTPError
@@ -19,48 +18,74 @@ def github_json(url):
         return json.load(response)
 
 
-current = tomllib.loads(Path("pyproject.toml").read_text())["project"]["version"]
+def project_version(path):
+    return tomllib.loads(Path(path).read_text())["project"]["version"]
+
+
+def set_project_version(path, version):
+    path = Path(path)
+    text = path.read_text()
+    path.write_text(
+        re.sub(r'(?m)^version = "[^"]+"$', f'version = "{version}"', text, count=1)
+    )
+
+
+def pypi_files(name, version):
+    try:
+        with urlopen(
+            f"https://pypi.org/pypi/{name}/{version}/json", timeout=30
+        ) as response:
+            return {item["filename"] for item in json.load(response)["urls"]}
+    except HTTPError as error:
+        if error.code != 404:
+            raise
+        return set()
+
+
+manifest_path = Path("packages/cli/binaries.json")
+cli_project = Path("packages/cli/pyproject.toml")
+cli_license = Path("packages/cli/TAILWIND-LICENSE")
+wrapper_project = Path("pyproject.toml")
+wrapper_version = project_version(wrapper_project)
+cli_version = project_version(cli_project)
+manifest = json.loads(manifest_path.read_text())
+if cli_version.split(".post")[0] != manifest["version"]:
+    raise ValueError("CLI package version must match binaries.json")
 release = github_json(
     "https://api.github.com/repos/tailwindlabs/tailwindcss/releases/latest"
 )
 latest = release["tag_name"].removeprefix("v")
 if not re.fullmatch(r"\d+\.\d+\.\d+", latest):
     raise ValueError(f"Expected a stable Tailwind release, got {latest!r}")
+
 if tuple(map(int, latest.split("."))) > tuple(
-    map(int, current.split(".post")[0].split("."))
+    map(int, cli_version.split(".post")[0].split("."))
 ):
-    expected = json.loads(Path("binaries.json").read_text())["sha256"]
     hashes = {}
     for asset in release["assets"]:
-        if asset["name"] in expected:
+        if asset["name"] in manifest["sha256"]:
             digest = asset.get("digest", "")
             if not re.fullmatch(r"sha256:[0-9a-f]{64}", digest):
                 raise RuntimeError(f"Missing SHA256 digest for {asset['name']}")
             hashes[asset["name"]] = digest.removeprefix("sha256:")
-    if hashes.keys() != expected.keys():
+    if hashes.keys() != manifest["sha256"].keys():
         raise RuntimeError("Upstream release is missing a supported platform")
-    Path("binaries.json").write_text(
+    manifest_path.write_text(
         json.dumps({"version": latest, "sha256": hashes}, indent=2) + "\n"
     )
     with urlopen(
         f"https://raw.githubusercontent.com/tailwindlabs/tailwindcss/v{latest}/LICENSE",
         timeout=30,
     ) as response:
-        Path("TAILWIND-LICENSE").write_bytes(response.read())
-    subprocess.run(["uv", "version", latest, "--frozen", "--no-sync"], check=True)
-    current = latest
+        cli_license.write_bytes(response.read())
+    set_project_version(cli_project, latest)
+    set_project_version(wrapper_project, latest)
+    wrapper_version = cli_version = latest
 
-
-try:
-    with urlopen(
-        f"https://pypi.org/pypi/fasthtml-tailwindcss/{current}/json", timeout=30
-    ) as response:
-        filenames = {item["filename"] for item in json.load(response)["urls"]}
-except HTTPError as error:
-    if error.code != 404:
-        raise
-    filenames = set()
-
+wrapper_expected = {
+    f"fasthtml_tailwindcss-{wrapper_version}-py3-none-any.whl",
+    f"fasthtml_tailwindcss-{wrapper_version}.tar.gz",
+}
 tags = [
     "manylinux_2_28_x86_64",
     "manylinux_2_28_aarch64",
@@ -70,9 +95,15 @@ tags = [
     "macosx_13_0_arm64",
     "win_amd64",
 ]
-expected_files = {f"fasthtml_tailwindcss-{current}-py3-none-{tag}.whl" for tag in tags}
-expected_files.add(f"fasthtml_tailwindcss-{current}.tar.gz")
+cli_expected = {
+    f"fasthtml_tailwindcss_cli-{cli_version}-py3-none-{tag}.whl" for tag in tags
+}
+cli_expected.add(f"fasthtml_tailwindcss_cli-{cli_version}.tar.gz")
+wrapper_missing = wrapper_expected - pypi_files(
+    "fasthtml-tailwindcss", wrapper_version
+)
+cli_missing = cli_expected - pypi_files("fasthtml-tailwindcss-cli", cli_version)
+
 with open(os.environ["GITHUB_OUTPUT"], "a") as output:
-    output.write(
-        f"version={current}\nrelease={str(not expected_files <= filenames).lower()}\n"
-    )
+    output.write(f"version={wrapper_version}\n")
+    output.write(f"release={str(bool(wrapper_missing or cli_missing)).lower()}\n")

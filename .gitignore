@@ -24,6 +24,6 @@ htmlcov/
 .vscode/
 .DS_Store
 Thumbs.db
-/src/fasthtml_tailwindcss/bin/
+/packages/cli/src/fasthtml_tailwindcss_cli/bin/
+/.fasthtml-tailwindcss/
 /source-dist/
-/unpacked/

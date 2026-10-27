@@ -2,9 +2,9 @@ import gc
 import time
 
 import pytest
-from fasthtml.common import Div, FastHTML
+from fasthtml.common import Div, FastHTML, StaticImmutable
 
-from fasthtml_tailwindcss import TailwindHead, _client
+from fasthtml_tailwindcss import TailwindHead, config
 
 
 @pytest.fixture(scope="session")
@@ -22,27 +22,25 @@ def helpers():
 @pytest.fixture
 def project(tmp_path, monkeypatch, helpers):
     monkeypatch.chdir(tmp_path)
-    monkeypatch.setattr(_client, "user_cache_path", lambda *a, **kw: tmp_path / "cache")
     (tmp_path / "pyproject.toml").write_text(
         '[project]\nname="example"\nversion="0.1.0"\n'
     )
     (tmp_path / "components.py").write_text('classes = "p-4 bg-blue-500"\n')
-    config = _client.configuration(
-        watch=False, sources=["components.py"], input=None, css=None
-    )
-    helpers.append(_client.cache_directory(config))
+    helpers.append(tmp_path / config.STATE_DIRECTORY)
+    (tmp_path / "static").mkdir()
     yield tmp_path
     gc.collect()
-    helpers.extend(path.parent for path in (tmp_path / "cache").glob("*/pid"))
 
 
 @pytest.fixture
 def application(project):
     def create_app(**options):
+        options.setdefault("watch", True)
         head = TailwindHead(sources=["components.py"], **options)
         app = FastHTML(sess_cls=None, hdrs=[head])
+        app.mount("/static", StaticImmutable(directory="static"), name="static")
 
-        @app.get("/")  # ty: ignore[unresolved-attribute]  # FastHTML registers HTTP methods dynamically.
+        @app.route("/")
         def get():
             return Div("Hello", cls="p-4 bg-blue-500")
 

@@ -49,7 +49,7 @@ def download_binary(url, binary, expected):
 
 class CustomBuildHook(BuildHookInterface):
     def initialize(self, version, build_data):
-        if self.target_name != "wheel":
+        if self.target_name not in {"wheel", "editable"}:
             return
         root = Path(self.root)
         manifest = json.loads((root / "binaries.json").read_text())
@@ -60,14 +60,24 @@ class CustomBuildHook(BuildHookInterface):
             raise RuntimeError(f"No official standalone Tailwind binary for {target}")
         suffix = ".exe" if target.startswith("windows-") else ""
         asset = f"tailwindcss-{target}{suffix}"
-        expected = manifest["sha256"][asset]
-        binary = root / "src" / "fasthtml_tailwindcss" / "bin" / f"tailwindcss{suffix}"
+        binary = (
+            root
+            / "src"
+            / "fasthtml_tailwindcss_cli"
+            / "bin"
+            / f"tailwindcss{suffix}"
+        )
         binary.parent.mkdir(parents=True, exist_ok=True)
-        url = f"https://github.com/tailwindlabs/tailwindcss/releases/download/v{manifest['version']}/{asset}"
-        download_binary(url, binary, expected)
+        url = (
+            "https://github.com/tailwindlabs/tailwindcss/releases/download/"
+            f"v{manifest['version']}/{asset}"
+        )
+        download_binary(url, binary, manifest["sha256"][asset])
         binary.chmod(0o755)
+        if self.target_name == "editable":
+            return
         build_data["pure_python"] = False
         build_data["tag"] = f"py3-none-{TARGETS[target]}"
         build_data["artifacts"].append(
-            f"src/fasthtml_tailwindcss/bin/tailwindcss{suffix}"
+            f"src/fasthtml_tailwindcss_cli/bin/tailwindcss{suffix}"
         )

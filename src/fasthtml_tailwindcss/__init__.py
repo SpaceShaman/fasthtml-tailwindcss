@@ -2,9 +2,10 @@ from collections.abc import Sequence
 from pathlib import Path
 from weakref import finalize
 
-from fasthtml.common import Style
+from fasthtml.common import Link, vurl
 
-from ._client import Session, configuration
+from .client import Session
+from .config import configuration
 
 __all__ = ["TailwindHead"]
 
@@ -17,17 +18,25 @@ class TailwindHead:
         sources: Sequence[str | Path] | None = None,
         input: str | Path | None = None,
         css: str | None = None,
+        output: str | Path = "./static/tailwind.css",
     ) -> None:
-        config = configuration(watch=watch, sources=sources, input=input, css=css)
-        self._session = Session(config)
-        self._session.start()
-        finalize(self, self._session.close)
+        self._config = configuration(
+            sources=sources, input=input, css=css, output=output
+        )
+        (Path(self._config.root) / self._config.output).parent.mkdir(
+            parents=True, exist_ok=True
+        )
+        self._session = Session(self._config) if watch else None
+        if self._session is not None:
+            finalize(self, self._session.close)
 
     def __deepcopy__(self, memo):
         return self
 
     def __ft__(self):
-        if self._session.error:
-            raise RuntimeError(self._session.error)
-        css = self._session.output.read_text(encoding="utf-8")
-        return Style(css.replace("</", "<\\/"))
+        if self._session is not None:
+            self._session.start()
+            if self._session.error:
+                raise RuntimeError(self._session.error)
+        path = "/" + self._config.output
+        return Link(rel="stylesheet", href=vurl(path, root=self._config.root))

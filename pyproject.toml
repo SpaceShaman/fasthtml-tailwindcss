@@ -1,11 +1,11 @@
 [project]
 name = "fasthtml-tailwindcss"
 version = "4.3.3"
-description = "Tailwind CSS for FastHTML with a persistent compiler across server reloads and watch mode for automatic CSS rebuilds."
+description = "Tailwind CSS for FastHTML with a persistent development watcher and a build command for production CSS."
 readme = "README.md"
 requires-python = ">=3.11"
 license = "MIT"
-license-files = ["LICENSE", "TAILWIND-LICENSE"]
+license-files = ["LICENSE"]
 authors = [{ name = "SpaceShaman", email = "spaceshaman@tuta.io" }]
 keywords = ["components", "css", "fasthtml", "tailwindcss", "web"]
 classifiers = [
@@ -19,7 +19,16 @@ classifiers = [
   "Topic :: Software Development :: Libraries :: Python Modules",
   "Typing :: Typed",
 ]
-dependencies = ["filelock>=3.16", "platformdirs>=4", "python-fasthtml>=0.14.13"]
+dependencies = ["filelock>=3.16", "python-fasthtml>=0.14.13"]
+
+[project.optional-dependencies]
+dev = ["fasthtml-tailwindcss-cli>=4,<5"]
+
+[project.scripts]
+fasthtml-tailwindcss = "fasthtml_tailwindcss.build:main"
+
+[tool.uv.sources]
+fasthtml-tailwindcss-cli = { path = "packages/cli" }
 
 [project.urls]
 Documentation = "https://github.com/SpaceShaman/fasthtml-tailwindcss#readme"
@@ -28,6 +37,7 @@ Issues = "https://github.com/SpaceShaman/fasthtml-tailwindcss/issues"
 Repository = "https://github.com/SpaceShaman/fasthtml-tailwindcss"
 
 [dependency-groups]
+build = ["hatchling>=1.27"]
 test = ["httpx", "pytest", "uvicorn"]
 
 [build-system]
@@ -38,8 +48,5 @@ build-backend = "hatchling.build"
 packages = ["src/fasthtml_tailwindcss"]
 
 [tool.hatch.build.targets.sdist]
-include = ["/src", "/hatch_build.py", "/binaries.json", "/pyproject.toml", "/README.md", "/LICENSE", "/TAILWIND-LICENSE", "/tests"]
-exclude = ["/src/fasthtml_tailwindcss/bin"]
-
-[tool.hatch.build.hooks.custom]
-path = "hatch_build.py"
+include = ["/src", "/packages/cli", "/pyproject.toml", "/README.md", "/LICENSE", "/tests", "/scripts"]
+exclude = ["/packages/cli/src/fasthtml_tailwindcss_cli/bin"]

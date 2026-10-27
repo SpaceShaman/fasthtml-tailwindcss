@@ -10,23 +10,18 @@
 [![Pytest](https://img.shields.io/badge/testing-pytest-0A9EDC?logo=pytest)](https://docs.pytest.org/)
 [![Ruff](https://img.shields.io/badge/linting-Ruff-D7FF64?logo=ruff)](https://github.com/astral-sh/ruff)
 
-Tailwind CSS for [FastHTML](https://github.com/AnswerDotAI/fasthtml) with a persistent compiler across server reloads and watch mode for automatic CSS rebuilds.
+Tailwind CSS for [FastHTML](https://github.com/AnswerDotAI/fasthtml) with a persistent development watcher and a build command for production CSS.
 
 ## Installation
 
-Install with uv:
+| Environment | uv | pip |
+| --- | --- | --- |
+| Development and builds | `uv add "fasthtml-tailwindcss[dev]"` | `pip install "fasthtml-tailwindcss[dev]"` |
+| Production | `uv add fasthtml-tailwindcss` | `pip install fasthtml-tailwindcss` |
 
-```sh
-uv add fasthtml-tailwindcss
-```
+The `dev` extra installs the standalone compiler through [fasthtml-tailwindcss-cli](https://pypi.org/project/fasthtml-tailwindcss-cli/). No Node.js or npm is needed. Production only needs the wrapper and generated CSS.
 
-Or with pip:
-
-```sh
-pip install fasthtml-tailwindcss
-```
-
-On Alpine Linux, the standalone compiler also requires the system C++ runtime:
+On Alpine Linux, the compiler also needs:
 
 ```sh
 apk add --no-cache libstdc++ libgcc
@@ -35,10 +30,11 @@ apk add --no-cache libstdc++ libgcc
 ## Usage
 
 ```python
-from fasthtml.common import Div, FastHTML
+from fasthtml.common import Div, FastHTML, StaticImmutable
 from fasthtml_tailwindcss import TailwindHead
 
 app = FastHTML(hdrs=[TailwindHead(watch=True)])
+app.mount("/static", StaticImmutable(directory="static"), name="static")
 
 
 @app.route("/")
@@ -46,14 +42,29 @@ def get():
     return Div("Hello", cls="rounded-lg bg-blue-500 p-4 text-white")
 ```
 
-Run your application normally, for example with `uv run uvicorn main:app --reload`. The package bundles the official standalone Tailwind compiler: no Node.js, npm, CDN, CSS endpoint or additional command is needed.
+`TailwindHead` creates the output directory and adds a stylesheet link. `vurl` versions the URL by content, and `StaticImmutable` lets browsers cache the CSS until it changes.
 
-`TailwindHead` builds CSS when the component is constructed, usually while importing your application module, and waits for the first successful compilation. It embeds the result in a `<style>` element. Each full page receives the latest completed CSS. Refresh the browser to see updates; automatic browser refresh and updating styles during HTMX fragment swaps are not included.
+### Watch mode
 
-- `watch=True`: compile once, then watch source files. The compiler survives application reloads.
-- `watch=False` (default): compile once with minification, then reuse the result across reloads. Source changes do not rebuild CSS during that session.
+```sh
+uv run uvicorn main:app --reload
+```
 
-A local helper keeps the session alive while applications renew a shared heartbeat file, and shuts down 15 seconds after the last heartbeat. A quick manual restart is treated like a reload. A later start creates a fresh session and builds again. The session stays active while the component exists in a running Python process; it does not depend on ASGI lifespan.
+For `app/main.py`, run `uv run --directory app uvicorn main:app --reload` from the project directory.
+
+With `watch=True`, compilation starts on the first page render and CSS rebuilds when sources change. The watcher survives server reloads, restarts if settings change, and stops 15 seconds after the last application stops using it. Refresh the browser to see changes; automatic browser refresh and stylesheet updates during HTMX fragment swaps are not included.
+
+### Production
+
+Use `TailwindHead()` with the default `watch=False` in the application, then build CSS in your deployment pipeline with the `dev` extra installed:
+
+```sh
+uv run fasthtml-tailwindcss build main:app
+```
+
+The command imports the app and builds minified CSS using its `TailwindHead` settings. The app must have exactly one `TailwindHead` in `hdrs`. For `app/main.py`, run `build app.main:app` from the project directory or `build main:app` from `app/`; both write to `app/static/tailwind.css` by default.
+
+Deploy the generated CSS alongside the application. With `watch=False`, `TailwindHead` only links the stylesheet; it does not run the compiler.
 
 ## Options
 
@@ -62,50 +73,53 @@ All configuration is passed to `TailwindHead`:
 ```python
 TailwindHead(
     watch=True,
-    sources=["app"],
     css="@theme { --color-brand: #7854f7; }",
+    output="static/app.css",
 )
 ```
 
-For a custom input stylesheet:
+- `watch`: enable the persistent development compiler. Defaults to `False`.
+- `sources`: files or directories to scan. Defaults to the working directory; with a custom input, its own source detection applies unless extra sources are supplied.
+- `input`: custom stylesheet, such as `input="assets/app.css"`, replacing the built-in `@import "tailwindcss"`. Relative CSS imports resolve from that file.
+- `css`: CSS appended after the input, useful for `@theme`, variants, and `@source inline(...)`.
+- `output`: CSS file path, defaulting to `./static/tailwind.css`. The stylesheet URL follows this path, so mount its directory at the corresponding URL.
 
-```python
-TailwindHead(watch=True, input="assets/app.css")
-```
+Paths are relative to the working directory. The build command uses the application module's directory; run the server from that directory too. Temporary files and compiler logs live in `.fasthtml-tailwindcss/`, which you can add to `.gitignore`.
 
-- `sources`: source files or directories. Defaults to the project directory with the built-in input; with a custom input, its own source detection is used unless extra sources are supplied.
-- `input`: optional stylesheet replacing the built-in `@import "tailwindcss"`. Relative CSS imports resolve from that file.
-- `css`: optional inline CSS appended after the input. Useful for `@theme`, variants and explicit `@source inline(...)` declarations.
-
-Paths are resolved relative to the nearest `pyproject.toml` above the working directory, or the working directory if none exists. Sessions are shared by project, configuration and OS user. Reloads and application workers with identical options reuse the same session. Changing options, including `watch`, starts a separate session immediately; the unused session shuts down after 15 seconds.
-
-Tailwind scans complete class names in source files. Use `"bg-red-500"` rather than constructing names such as `f"bg-{color}-500"`. Classes inside installed component libraries need explicit sources or safelisting.
-
-Generated files and compiler diagnostics (`compiler.log`) live in the OS user cache under `fasthtml-tailwindcss`. Nothing is written into your application or installed package. Inline CSS requires an appropriate Content Security Policy if your application sets one.
-
-### Automatic updates
-
-The library is automatically updated to the latest stable [Tailwind CSS release](https://github.com/tailwindlabs/tailwindcss/releases), with checks running daily. The PyPI version matches the bundled Tailwind version; Python-only fixes may add a `.postN` suffix.
+Use complete class names such as `"bg-red-500"`; Tailwind cannot detect names constructed with `f"bg-{color}-500"`. Classes in installed component libraries need explicit sources or safelisting.
 
 For inline Lucide SVG icons with typed names and editor autocomplete, see [fasthtml-lucide](https://github.com/SpaceShaman/fasthtml-lucide).
 
 ## Development
 
+### Setup and tests
+
 ```sh
-uv sync --group test
-uv run --group test pytest
-uv build
+uv sync --group build --group test --extra dev
+uv run --group test --extra dev pytest
 ```
 
-Wheel builds download and verify the matching official standalone executable. Wheels target Linux x64/ARM64 (glibc 2.28+ or musl 1.2+), macOS 13+ (Intel/Apple Silicon), and Windows x64. Source distributions contain the build hook and checksum manifest; building one requires network access unless the verified compiler is already present locally.
+### Build
 
-The [Release workflow](.github/workflows/release.yml) builds and tests the platform wheels and publishes through PyPI Trusted Publishing. Configure the publisher for `SpaceShaman/fasthtml-tailwindcss`, workflow `release.yml`, environment `pypi`; allow workflow version commits on the default branch.
+```sh
+uv build --no-sources
+uv build packages/cli --no-sources
+```
+
+CLI wheel builds download and verify the official executable using SHA-256. Supported platforms are Linux x64/ARM64 (glibc 2.28+ or musl 1.2+), macOS 13+ (Intel/Apple Silicon), and Windows x64. Building a CLI wheel needs network access unless the verified binary is already available locally.
+
+### Automated releases
+
+GitHub Actions checks daily for a new stable [Tailwind CSS release](https://github.com/tailwindlabs/tailwindcss/releases), then builds and tests both packages before publishing them to PyPI. Both package versions track the Tailwind version; wrapper-only fixes may add a `.postN` suffix.
+
+The [Release workflow](.github/workflows/release.yml) builds and tests both packages before publishing through PyPI Trusted Publishing. Configure the same publisher (`SpaceShaman/fasthtml-tailwindcss`, workflow `release.yml`, environment `pypi`) for both PyPI projects, and allow workflow version commits on the default branch.
 
 ## Links
 
 - [GitHub repository](https://github.com/SpaceShaman/fasthtml-tailwindcss)
 - [PyPI package](https://pypi.org/project/fasthtml-tailwindcss/)
+- [Tailwind CLI package](https://pypi.org/project/fasthtml-tailwindcss-cli/)
 
 ## License
 
-The wrapper and Tailwind CSS are MIT licensed. Both license notices are included in distributions.
+The wrapper and Tailwind CSS are MIT licensed. The CLI package includes both license notices.

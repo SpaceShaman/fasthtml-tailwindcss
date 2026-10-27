@@ -41,7 +41,7 @@ jobs:
       - uses: actions/download-artifact@v4
         if: inputs.release
         with:
-          name: source
+          name: sources
           path: source-dist
       - name: Unpack release sources
         if: inputs.release
@@ -50,36 +50,42 @@ jobs:
           python - <<'PY'
           import shutil, tarfile, tempfile
           from pathlib import Path
-          archive, = Path('source-dist').glob('*.tar.gz')
+
+          archive, = Path("source-dist").glob("fasthtml_tailwindcss-*.tar.gz")
           with tempfile.TemporaryDirectory() as temporary, tarfile.open(archive) as source:
-              source.extractall(temporary, filter='data')
+              source.extractall(temporary, filter="data")
               root, = Path(temporary).iterdir()
-              for item in root.iterdir():
-                  if item.is_dir():
-                      shutil.copytree(item, item.name, dirs_exist_ok=True)
-                  else:
-                      shutil.copyfile(item, item.name)
+              shutil.copytree(root, Path.cwd(), dirs_exist_ok=True)
           PY
-      - name: Build platform wheel
+      - name: Build CLI wheel
+        working-directory: packages/cli
         env:
           TAILWIND_BUILD_TARGET: ${{ matrix.target }}
-        run: uv build --wheel
-      - name: Install and test wheel
+        run: uv build --wheel --no-sources
+      - name: Build wrapper wheel
+        run: uv build --wheel --no-sources
+      - name: Install and test wheels
         if: ${{ !contains(matrix.target, 'musl') }}
         shell: bash
         run: |
           uv venv
-          uv pip install --group test dist/*.whl
+          uv pip install --group test dist/*.whl packages/cli/dist/*.whl
           uv run --no-project python -m pytest tests -q
-      - name: Test musl wheel on Alpine
+      - name: Test musl wheels on Alpine
         if: contains(matrix.target, 'musl')
         shell: bash
         run: |
           docker run --rm -v "$PWD:/work" -w /work python:3.11-alpine sh -c \
-            'apk add --no-cache libstdc++ libgcc && pip install dist/*.whl pytest httpx uvicorn && python -m pytest tests -q'
+            'apk add --no-cache libstdc++ libgcc && pip install dist/*.whl packages/cli/dist/*.whl pytest httpx uvicorn && python -m pytest tests -q'
+      - uses: actions/upload-artifact@v4
+        if: inputs.release && matrix.target == 'linux-x64'
+        with:
+          name: wheel-wrapper
+          path: dist/*.whl
+          if-no-files-found: error
       - uses: actions/upload-artifact@v4
         if: inputs.release
         with:
-          name: wheel-${{ matrix.target }}
-          path: dist/*.whl
+          name: wheel-cli-${{ matrix.target }}
+          path: packages/cli/dist/*.whl
           if-no-files-found: error

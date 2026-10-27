@@ -1,38 +1,36 @@
+import os
+import signal
+import socket
+import subprocess
+import sys
 import time
+from urllib.request import urlopen
 
 import pytest
 
-from fasthtml_tailwindcss import _client
+from fasthtml_tailwindcss import config
 
 
 @pytest.mark.skipif(
-    __import__("os").name == "nt",
+    os.name == "nt",
     reason="POSIX process-group shutdown for this reload test",
 )
 @pytest.mark.parametrize("watch", [False, True])
-def test_real_uvicorn_reload(project, helpers, watch):
-    import os
-    import signal
-    import socket
-    import subprocess
-    import sys
-    from urllib.error import URLError
-    from urllib.request import urlopen
-
+def test_real_uvicorn_reload(project, watch):
     source = project / "main.py"
     source.write_text(f"""import os
-from pathlib import Path
-from fasthtml.common import FastHTML, Div
-from fasthtml_tailwindcss import TailwindHead, _client
-_client.user_cache_path = lambda *a, **kw: Path({str(project / "cache")!r})
+from fasthtml.common import FastHTML, Div, StaticImmutable
+from fasthtml_tailwindcss import TailwindHead
 app = FastHTML(sess_cls=None, hdrs=[TailwindHead(watch={watch!r}, sources=["main.py"])])
-@app.get("/")
+app.mount("/static", StaticImmutable(directory="static"), name="static")
+@app.route("/")
 def get():
     return Div("first", cls="p-4")
-@app.get("/pid")
+@app.route("/pid")
 def pid():
     return str(os.getpid())
 """)
+    (project / "static" / "tailwind.css").write_text(".p-4{padding:1rem}")
     with socket.socket() as sock:
         sock.bind(("127.0.0.1", 0))
         port = sock.getsockname()[1]
@@ -42,13 +40,10 @@ def pid():
         try:
             with urlopen(base + path, timeout=1) as res:
                 return res.read().decode()
-        except (OSError, URLError):
+        except OSError:
             return ""
 
-    config = _client.configuration(
-        watch=watch, sources=["main.py"], input=None, css=None
-    )
-    directory = _client.cache_directory(config)
+    directory = project / config.STATE_DIRECTORY
     with (project / "uvicorn.log").open("w") as log:
         process = subprocess.Popen(
             [
@@ -74,8 +69,8 @@ def pid():
                 ).read_text()
                 time.sleep(0.1)
             pid = response("/pid")
-            helper_pid = (directory / "pid").read_text()
-            output = directory / "style.css"
+            helper_pid = (directory / "pid").read_text() if watch else None
+            output = project / "static" / "tailwind.css"
             timestamp = output.stat().st_mtime_ns
             source.write_text(
                 source.read_text().replace(
@@ -89,14 +84,14 @@ def pid():
                 ).read_text()
                 time.sleep(0.1)
             assert response("/pid") != pid
-            assert (directory / "pid").read_text() == helper_pid
             if watch:
-                while ".text-7xl" not in response():
+                while ".text-7xl" not in output.read_text():
                     assert time.monotonic() < deadline
                     time.sleep(0.1)
+                assert (directory / "pid").read_text() == helper_pid
             else:
                 assert output.stat().st_mtime_ns == timestamp
-                assert ".text-7xl" not in response()
+                assert ".text-7xl" not in output.read_text()
         finally:
             os.killpg(process.pid, signal.SIGTERM)
             process.wait(timeout=15)
