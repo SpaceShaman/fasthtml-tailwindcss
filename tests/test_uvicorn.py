@@ -52,6 +52,7 @@ def pid():
                 "uvicorn",
                 "main:app",
                 "--reload",
+                "--no-access-log",
                 "--port",
                 str(port),
             ],
@@ -78,6 +79,13 @@ def pid():
                 )
             )
             deadline = time.monotonic() + 20
+            while "Reloading..." not in (project / "uvicorn.log").read_text():
+                assert process.poll() is None, (project / "uvicorn.log").read_text()
+                assert time.monotonic() < deadline, (
+                    project / "uvicorn.log"
+                ).read_text()
+                source.touch()
+                time.sleep(0.3)
             while ">second</div>" not in response():
                 assert time.monotonic() < deadline, (
                     project / "uvicorn.log"
