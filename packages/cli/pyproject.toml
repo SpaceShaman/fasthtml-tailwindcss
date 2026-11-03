@@ -1,6 +1,6 @@
 [project]
 name = "fasthtml-tailwindcss-cli"
-version = "4.3.3"
+version = "4.3.4"
 description = "Platform-specific Tailwind CSS standalone CLI binary for fasthtml-tailwindcss."
 readme = "README.md"
 requires-python = ">=3.11"
