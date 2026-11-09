@@ -129,7 +129,7 @@ CLI wheel builds download and verify the official executable using SHA-256. Supp
 
 ### Automated releases
 
-GitHub Actions checks daily for a new stable [Tailwind CSS release](https://github.com/tailwindlabs/tailwindcss/releases), then builds and tests both packages before publishing them to PyPI. Both package versions track the Tailwind version; wrapper-only fixes may add a `.postN` suffix.
+GitHub Actions checks weekly for a new stable [Tailwind CSS release](https://github.com/tailwindlabs/tailwindcss/releases), then builds and tests both packages before publishing them to PyPI. Both package versions track the Tailwind version; wrapper-only fixes may add a `.postN` suffix.
 
 The [Release workflow](.github/workflows/release.yml) builds and tests both packages before publishing through PyPI Trusted Publishing. Configure the same publisher (`SpaceShaman/fasthtml-tailwindcss`, workflow `release.yml`, environment `pypi`) for both PyPI projects, and allow workflow version commits on the default branch.
 
